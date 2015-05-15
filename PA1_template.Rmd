@@ -1,25 +1,140 @@
 ---
 title: "Reproducible Research: Peer Assessment 1"
+author: "Drew Overholt"
+date: "Friday, May 15, 2015"
 output: 
   html_document:
     keep_md: true
 ---
-
-
+  
 ## Loading and preprocessing the data
 
+---
 
+To begin, we will load the dataset for the assignment. This assumes that it is in your current working directory and is entitled: "activity.csv"
 
-## What is mean total number of steps taken per day?
+We will also transform the columns into their correct format.
 
+```{r}
+data<-read.csv("activity.csv")
+data$date<-as.Date(data$date)
+```
+ 
+## What is the mean total number of steps taken per Day?
 
+---
+
+To answer this question we must find the total number of steps taken in a particular day. This can be done easily through use of the 'aggregate' function, which will apply the 'sum' function to the steps as subsetted by date.
+
+```{r}
+total.steps<-aggregate(steps~date, data=data, FUN=sum)
+```
+
+We then plot a histogram of the total number of steps taken each day. This will tell us what range of steps taken occured most often during the trial.
+
+```{r}
+hist(total.steps$steps, xlab="Number of Steps per Day", main="Histogram of the Number of Steps per Day", breaks=20)
+```
+
+From this data we can also calculate the mean and median number of steps taken each day.
+
+```{r}
+mean.total.steps<-mean(total.steps$steps)
+median.total.steps<-median(total.steps$steps)
+```
+
+Mean:  `r format(mean.total.steps, scientific=F)`  
+Median:  `r (median.total.steps)`
 
 ## What is the average daily activity pattern?
 
+---
 
+To find the average daily activity pattern, we will begin by subsetting the data according to the time interval instead of the date. This is contrary to the previous section where we subsetted it relative to date. Similar to the previous section, we will use the 'aggregate' function, however this time we will not aggregate the 'sum' function, but rather the 'mean' function. This will provide the average number of steps taken during that time interval averaged across all days.
+
+```{r}
+time.steps<-aggregate(steps~interval, data=data, FUN=mean)
+```
+
+We will then make a time series plot of these results.
+
+```{r}
+plot(time.steps$interval, time.steps$steps, type='l', main="Average Number of Steps Taken Throughout the Day", ylab="Average Number of Steps Taken per 5 minute interval", xlab="Time Interval")
+```
+
+We will now use this data to find which 5-minute interval contains the highest average number of steps.
+
+```{r}
+max.steps.column<-which.max(time.steps$steps)
+time.max.steps<-time.steps[max.steps.column,1]
+max.steps<-time.steps[max.steps.column,2]
+```
+
+The 5-minute interval which corresponds to the largest average number of steps taken is:  `r time.max.steps` with an average number of steps of `r max.steps`.
 
 ## Imputing missing values
 
+---
 
+We will first find how many values are missing from our dataset.
+
+```{r}
+missing.values<-sum(is.na(data[,1]))
+```
+We are missing `r missing.values` values from our dataset.
+
+Now we will attempt to replace this missing values with reasonable values from the dataset. This could be done many different ways, but we will use the average number of steps for the time interval from which the data is missing. This will be done with a for loop which will replace the missing value with the interval average we calculated on the previous section.
+
+```{r}
+replaced.data<-data
+for(i in 1:nrow(replaced.data)) {
+        if(is.na(replaced.data$steps[i])){
+                replaced.data$steps[i]<-time.steps[time.steps$interval==replaced.data$interval[i], 2]
+        }
+}
+```
+
+Now that we have our new dataset with the NAs replaced by time interval averages, we create a new histogram.
+
+```{r}
+total.steps.replaced<-aggregate(steps~date, data=replaced.data, FUN=sum)
+hist(total.steps.replaced$steps, xlab="Number of Steps per Day", main="Histogram of the Number of Steps per Day", breaks=20)
+```
+
+From this data we can also calculate the mean and median number of steps taken each day.
+
+```{r}
+mean.total.steps.replaced<-mean(total.steps.replaced$steps)
+median.total.steps.replaced<-median(total.steps.replaced$steps)
+```
+
+Mean:  `r format(mean.total.steps, scientific=F)`  
+Median:  `r (median.total.steps)`
+
+Through this data transformation we can see that there are a larger number of days near the average, however the mean and median do not change to the precision given.
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+---
+
+To begin, we will add a new column to our dataset (replaced.data) which will designate each day as either weekend or weekday.
+
+```{r}
+for(i in 1:nrow(replaced.data)) {
+        if(weekdays(replaced.data$date[i])=="Saturday") {
+                replaced.data$day[i]<-"weekend"
+        } else if(weekdays(replaced.data$date[i])=="Sunday") {
+                replaced.data$day[i]<-"weekend"
+        } else {
+                replaced.data$day[i]<-"weekday"
+        }
+}
+```
+
+Next we will create a panel plot of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis). To do this, first we must find the averages in question.
+
+```{r} 
+time.steps.day<-aggregate(steps~interval+day, data=replaced.data, FUN=mean)
+library(lattice)
+xyplot(steps ~ interval | day, data=time.steps.day, type="l", grid=T, layout=c(1,2), ylab="Number of steps", xlab="Time Interval", main="Average Number of Steps Taken Throughout the Day")
+```
